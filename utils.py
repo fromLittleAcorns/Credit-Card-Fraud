@@ -93,7 +93,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
 
-def add_quarter_and_normalize(dataset):
+def add_quarter_and_normalize(dataset, all_features=False):
     # Function to create four one hot encodings for the quarters of the day based upon the time value in the dataset
     # the time value is in seconds from the start of the log
 
@@ -107,22 +107,32 @@ def add_quarter_and_normalize(dataset):
     def to_quarter(row):
         seconds_in_quarter = 21600
         quarter = int(row["Time"] / seconds_in_quarter) % 4
-        return quarter+1
+        row['qtr_num']=quarter+1
+        return row
 
-    dataset['qtr_num'] = dataset.apply(to_quarter, axis=1)
+    dataset = dataset.apply(to_quarter, axis=1)
 
     # Assign values to quarters columns
     for qtr in range(1, 5):
-        dataset['Q' + str(qtr)] = np.where(dataset['qtr_num'] == qtr, 1, 0)
+        dataset.loc[:,'Q' + str(qtr)] = np.where(dataset['qtr_num'] == qtr, 1, 0)
 
     # will now normalize selected columns.  Will first create copy of the amount column for future use
     ss_amount = StandardScaler()
     dataset['Amt_To_Keep'] = dataset['Amount']
 
-    dataset['Amount'] = ss_amount.fit_transform(dataset['Amount'].values.reshape(-1, 1))
-
-    #    dataset.drop(['Time'], axis=1)
-    #    dataset.drop(['qtr_num'], axis=1)
+    #dataset.loc['Amount'] = ss_amount.fit_transform(dataset.loc['Amount'].values.reshape(-1, 1))
+    ss_amount.fit(dataset.loc[:, 'Amount'].values.reshape(-1,1))
+    tmp=ss_amount.transform(dataset.loc[:,'Amount'].values.reshape(-1,1))
+    dataset['Amount']=tmp
+    # If required to normalise the other features then do so now
+    if all_features==True:
+        ss_vFeatures=StandardScaler(copy=False, with_mean=True, with_std=True)
+        vFeatures=[]
+        for i in range(1,29):
+            vFeatures.append('V'+str(i))
+        ss_vFeatures.fit(dataset.loc[:,vFeatures])
+        tmp=ss_vFeatures.transform(dataset.loc[:,vFeatures])
+        dataset.loc[:,vFeatures]=tmp
 
     return dataset
 
@@ -153,11 +163,15 @@ def add_quarter_and_unitRange(dataset):
     ss_amount = MinMaxScaler()
     dataset['Amt_To_Keep'] = dataset['Amount']
 
-    dataset[dataset.columns] = ss_amount.fit_transform(dataset[dataset.columns])
-
+    #dataset[dataset.columns] = ss_amount.fit_transform(dataset[dataset.columns])
+    #dataset['Amount'] = ss_amount.fit_transform(dataset['Amount'].values.reshape(-1, 1))
+    ss_amount.fit(dataset.loc[:, 'Amount'])
+    tmp=ss_amount.transform(dataset.loc[:,'Amount'])
+    dataset['Amount']=tmp
     #    dataset.drop(['Time'], axis=1)
     #    dataset.drop(['qtr_num'], axis=1)
 
     return dataset
+
 
 
